@@ -1,0 +1,1108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marine Fouling Community Ecological Simulator - Berkeley Marina & SF Bay Study</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js for Growth & Composition Charts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Font: Plus Jakarta Sans for clean research tool typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        bay: {
+                            950: '#07111e',
+                            900: '#0b192c',
+                            850: '#11223b',
+                            800: '#172c4a',
+                            700: '#213f68',
+                            600: '#2d568c',
+                        },
+                        teal: {
+                            300: '#5eead4',
+                            400: '#2dd4bf',
+                            500: '#14b8a6',
+                            600: '#0d9488',
+                            900: '#134e4a',
+                        },
+                        seafoam: {
+                            300: '#99f6e4',
+                            400: '#5eead4',
+                            500: '#2dd4bf',
+                        },
+                        sand: {
+                            100: '#fdfbf7',
+                            200: '#f7f3e9',
+                            300: '#e6dfce',
+                            400: '#c2b89f',
+                            500: '#9e9275',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #07111e;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(20, 184, 166, 0.08) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(13, 148, 136, 0.05) 0px, transparent 50%),
+                radial-gradient(at 50% 50%, rgba(11, 25, 44, 0.5) 0px, transparent 100%);
+            background-attachment: fixed;
+        }
+
+        /* Subtle ambient underwater wave effect */
+        .wave-bg {
+            background-image: radial-gradient(circle at 50% -20%, rgba(45, 212, 191, 0.12), transparent 70%);
+        }
+
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            padding-bottom: 75%; /* 4:3 ratio */
+            height: 0;
+            overflow: hidden;
+            border-radius: 0.875rem;
+            background: linear-gradient(180deg, #0f1f35 0%, #081220 100%);
+        }
+
+        .canvas-container canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Custom Styled Ocean Slider */
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #2dd4bf;
+            box-shadow: 0 0 12px rgba(45, 212, 191, 0.6), inset 0 0 4px #ffffff;
+            cursor: pointer;
+            border: 2px solid #0b192c;
+            transition: transform 0.15s ease, background-color 0.15s ease;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.15);
+            background: #5eead4;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #0b192c;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #213f68;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #14b8a6;
+        }
+
+        .glass-card {
+            background: rgba(17, 34, 59, 0.75);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .glass-card-subtle {
+            background: rgba(11, 25, 44, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+    </style>
+</head>
+<body class="text-slate-100 min-h-screen pb-16 custom-scrollbar wave-bg">
+
+    <!-- Top Navigation Header -->
+    <header class="bg-bay-950/80 backdrop-blur-md border-b border-bay-800/80 sticky top-0 z-50 px-4 lg:px-8 py-3.5 shadow-2xl">
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-3.5">
+                <div class="p-2.5 bg-gradient-to-br from-teal-500/20 to-teal-700/30 text-teal-300 rounded-xl border border-teal-500/30 shadow-inner">
+                    <i data-lucide="waves" class="w-6 h-6 text-teal-400 animate-pulse"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="text-xl font-extrabold text-white tracking-tight">
+                            Marine Fouling Ecological Simulator
+                        </h1>
+                        <span class="text-[11px] font-bold tracking-wider uppercase px-2.5 py-0.5 rounded-full bg-teal-500/10 text-teal-300 border border-teal-500/30">
+                            SF Bay Ecosystem Model
+                        </span>
+                    </div>
+                    <p class="text-xs text-slate-400 mt-0.5">Interactive biological succession simulator based on Berkeley Marina submerged fouling panels</p>
+                </div>
+            </div>
+            
+            <!-- Real versus Simulated Badges -->
+            <div class="flex items-center gap-2 text-xs bg-bay-900/90 p-1.5 rounded-xl border border-bay-700/60 shadow-lg">
+                <span class="flex items-center gap-1.5 text-emerald-300 font-medium px-2.5 py-1 rounded-lg bg-emerald-950/60 border border-emerald-500/30">
+                    <i data-lucide="check-circle-2" class="w-3.5 h-3.5 text-emerald-400"></i> Experimental Baseline
+                </span>
+                <span class="text-slate-500 font-mono text-[10px]">VS</span>
+                <span class="flex items-center gap-1.5 text-amber-300 font-medium px-2.5 py-1 rounded-lg bg-amber-950/60 border border-amber-500/30">
+                    <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-400"></i> Hypothetical Scenario
+                </span>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 lg:px-8 mt-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- LEFT COLUMN: CONTROLS & TAXA BREAKDOWN (4 Cols) -->
+        <div class="lg:col-span-4 flex flex-col gap-6">
+
+            <!-- Control Card -->
+            <div class="glass-card rounded-2xl p-5 shadow-2xl space-y-5">
+                <div class="flex items-center justify-between border-b border-bay-800 pb-3.5">
+                    <h2 class="font-bold text-slate-100 flex items-center gap-2 text-sm uppercase tracking-wider">
+                        <i data-lucide="sliders" class="w-4 h-4 text-teal-400"></i>
+                        Environmental Variables
+                    </h2>
+                    <button id="reset-btn" class="text-xs text-slate-400 hover:text-teal-300 flex items-center gap-1 transition-colors px-2 py-1 rounded-lg hover:bg-bay-800/60">
+                        <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i> Reset Default
+                    </button>
+                </div>
+
+                <!-- Variable 1: Deployment Duration -->
+                <div class="space-y-2.5">
+                    <div class="flex justify-between items-center text-sm">
+                        <label for="duration-slider" class="font-semibold text-slate-200 flex items-center gap-2">
+                            <i data-lucide="clock" class="w-4 h-4 text-teal-400"></i> Deployment Duration
+                        </label>
+                        <span id="duration-val" class="font-mono text-teal-300 font-bold text-sm bg-bay-950 px-2.5 py-1 rounded-lg border border-teal-500/30 shadow-inner">8 Weeks</span>
+                    </div>
+                    <input type="range" id="duration-slider" min="1" max="16" value="8" step="1" 
+                           class="w-full accent-teal-400 bg-bay-950 h-2 rounded-lg cursor-pointer border border-bay-800">
+                    <div class="flex justify-between text-[10px] text-slate-400 px-1 font-mono">
+                        <span>1 Wk (Biofilm)</span>
+                        <span class="text-teal-400/90 font-semibold">8 Wks (Report Baseline)</span>
+                        <span>16 Wks (Climax)</span>
+                    </div>
+                </div>
+
+                <!-- Variable 2: Sunlight Exposure -->
+                <div class="space-y-2.5">
+                    <label class="text-sm font-semibold text-slate-200 flex items-center gap-2">
+                        <i data-lucide="sun" class="w-4 h-4 text-amber-400"></i> Sunlight Exposure
+                    </label>
+                    <div class="grid grid-cols-2 gap-2.5">
+                        <button id="sun-shaded" class="sun-btn flex items-center justify-center gap-2 p-3 rounded-xl border text-xs font-semibold transition-all bg-bay-800 text-teal-200 border-teal-500/50 shadow-lg ring-1 ring-teal-500/30">
+                            <i data-lucide="cloud-sun" class="w-4 h-4 text-teal-300"></i> Shaded Dock
+                        </button>
+                        <button id="sun-sunny" class="sun-btn flex items-center justify-center gap-2 p-3 rounded-xl border text-xs font-semibold transition-all bg-bay-950 text-slate-400 border-bay-800 hover:border-amber-500/50 hover:text-slate-200">
+                            <i data-lucide="sun" class="w-4 h-4 text-amber-400"></i> Direct Sun
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Variable 3: Panel Location -->
+                <div class="space-y-2.5">
+                    <label class="text-sm font-semibold text-slate-200 flex items-center gap-2">
+                        <i data-lucide="map-pin" class="w-4 h-4 text-rose-400"></i> Panel Location & Hydrodynamics
+                    </label>
+                    <div class="grid grid-cols-1 gap-2.5">
+                        <button id="loc-berkeley" class="loc-btn flex items-center justify-between p-3 rounded-xl border text-xs font-semibold transition-all bg-bay-800 text-teal-200 border-teal-500/50 shadow-lg ring-1 ring-teal-500/30">
+                            <div class="flex items-center gap-2.5">
+                                <i data-lucide="anchor" class="w-4 h-4 text-teal-400"></i>
+                                <span>Berkeley Marina (Estuarine Protected)</span>
+                            </div>
+                            <span class="text-[10px] bg-teal-950 text-teal-300 border border-teal-500/30 px-2 py-0.5 rounded-md font-mono">Baseline</span>
+                        </button>
+                        <button id="loc-ocean" class="loc-btn flex items-center justify-between p-3 rounded-xl border text-xs font-semibold transition-all bg-bay-950 text-slate-400 border-bay-800 hover:border-blue-500/50 hover:text-slate-200">
+                            <div class="flex items-center gap-2.5">
+                                <i data-lucide="compass" class="w-4 h-4 text-blue-400"></i>
+                                <span>Bay Mouth / Open Ocean (High Salinity)</span>
+                            </div>
+                            <span class="text-[10px] bg-bay-900 text-slate-400 border border-bay-700 px-2 py-0.5 rounded-md font-mono">Simulated</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Scenario Condition Impact Card -->
+                <div class="p-3.5 bg-bay-950/80 rounded-xl border border-bay-800 text-xs space-y-1.5">
+                    <div class="font-semibold text-teal-300 flex items-center gap-1.5">
+                        <i data-lucide="info" class="w-4 h-4 text-teal-400"></i> Scenario Condition Summary
+                    </div>
+                    <p id="scenario-summary-text" class="text-slate-300 leading-relaxed text-[11.5px]">
+                        Matches experimental baseline observations (8 weeks in Berkeley Marina under shaded dock overhang). Colonial tunicates heavily dominate surface space.
+                    </p>
+                </div>
+            </div>
+
+            <div class="glass-card rounded-2xl p-5 shadow-2xl space-y-4">
+                <div class="flex justify-between items-center border-b border-bay-800 pb-3">
+                    <h2 class="font-bold text-slate-100 flex items-center gap-2 text-sm uppercase tracking-wider">
+                        <i data-lucide="bug" class="w-4 h-4 text-emerald-400"></i> Observed Taxa Legend
+                    </h2>
+                    <span class="text-[10px] font-mono text-slate-400">Hypothetical Coverage</span>
+                </div>
+
+                <div class="space-y-2 text-xs">
+                    <!-- Botryllus -->
+                    <div class="flex items-center justify-between p-2.5 rounded-xl bg-bay-900/80 border border-bay-800">
+                        <div class="flex items-center gap-2.5">
+                            <span class="w-3.5 h-3.5 rounded-full bg-amber-500 border border-amber-300 shadow-sm inline-block"></span>
+                            <div>
+                                <span class="font-semibold text-slate-100">Botryllus schlosseri</span>
+                                <p class="text-[10px] text-slate-400">Golden Star Tunicate (Colonial)</p>
+                            </div>
+                        </div>
+                        <span class="font-mono text-amber-300 font-bold" id="legend-botryllus">35%</span>
+                    </div>
+
+                    <!-- Botrylloides -->
+                    <div class="flex items-center justify-between p-2.5 rounded-xl bg-bay-900/80 border border-bay-800">
+                        <div class="flex items-center gap-2.5">
+                            <span class="w-3.5 h-3.5 rounded-full bg-rose-500 border border-rose-300 shadow-sm inline-block"></span>
+                            <div>
+                                <span class="font-semibold text-slate-100">Botrylloides violaceus</span>
+                                <p class="text-[10px] text-slate-400">Chain Tunicate (Colonial, Invasive)</p>
+                            </div>
+                        </div>
+                        <span class="font-mono text-rose-300 font-bold" id="legend-botrylloides">25%</span>
+                    </div>
+
+                    <!-- Solitary Tunicates -->
+                    <div class="flex items-center justify-between p-2.5 rounded-xl bg-bay-900/80 border border-bay-800">
+                        <div class="flex items-center gap-2.5">
+                            <span class="w-3.5 h-3.5 rounded-full bg-cyan-400 border border-cyan-200 shadow-sm inline-block"></span>
+                            <div>
+                                <span class="font-semibold text-slate-100">Solitary Tunicates</span>
+                                <p class="text-[10px] text-slate-400">Ciona / Styela (Sea Squirts)</p>
+                            </div>
+                        </div>
+                        <span class="font-mono text-cyan-300 font-bold" id="legend-solitary">15%</span>
+                    </div>
+
+                    <!-- Marine Worms -->
+                    <div class="flex items-center justify-between p-2.5 rounded-xl bg-bay-900/80 border border-bay-800">
+                        <div class="flex items-center gap-2.5">
+                            <span class="w-3.5 h-3.5 rounded-full bg-slate-300 border border-white shadow-sm inline-block"></span>
+                            <div>
+                                <span class="font-semibold text-slate-100">Marine Tube Worm</span>
+                                <p class="text-[10px] text-slate-400">Serpulidae (Calcified Tube Worm)</p>
+                            </div>
+                        </div>
+                        <span class="font-mono text-slate-200 font-bold" id="legend-worm">10%</span>
+                    </div>
+
+                    <!-- Macroalgae / Film -->
+                    <div class="flex items-center justify-between p-2.5 rounded-xl bg-bay-900/80 border border-bay-800">
+                        <div class="flex items-center gap-2.5">
+                            <span class="w-3.5 h-3.5 rounded-full bg-emerald-500 border border-emerald-300 shadow-sm inline-block"></span>
+                            <div>
+                                <span class="font-semibold text-slate-100">Macroalgae & Film</span>
+                                <p class="text-[10px] text-slate-400">Green Algae / Diatom Film</p>
+                            </div>
+                        </div>
+                        <span class="font-mono text-emerald-300 font-bold" id="legend-algae">0%</span>
+                    </div>
+
+                    <!-- Bare Space -->
+                    <div class="flex items-center justify-between p-2.5 rounded-xl bg-bay-900/80 border border-bay-800">
+                        <div class="flex items-center gap-2.5">
+                            <span class="w-3.5 h-3.5 rounded-full bg-bay-800 border border-bay-600 inline-block"></span>
+                            <div>
+                                <span class="font-semibold text-slate-400">Uncolonized Substrate</span>
+                                <p class="text-[10px] text-slate-500">Bare PVC Surface Panel</p>
+                            </div>
+                        </div>
+                        <span class="font-mono text-slate-400 font-bold" id="legend-bare">15%</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Model Assumptions & Scientific Transparency -->
+            <div class="bg-amber-950/30 border border-amber-500/30 rounded-2xl p-4 text-xs text-amber-200 space-y-2 shadow-lg">
+                <div class="font-bold flex items-center gap-2 text-amber-300 uppercase text-[11px] tracking-wider">
+                    <i data-lucide="shield-alert" class="w-4 h-4 text-amber-400"></i> Research Integrity Note
+                </div>
+                <p class="leading-relaxed text-[11px] text-amber-200/90">
+                    <strong class="text-amber-100">Actual Measurements:</strong> Experimental baseline values reflect empirical observations from the Berkeley Marina submerged panel report at 8 weeks.
+                </p>
+                <p class="leading-relaxed text-[11px] text-amber-200/90">
+                    <strong class="text-amber-100">Simulated Estimates:</strong> Non-baseline scenarios rely on logistic ecological succession dynamics ($dN/dt$) adjusted for solar irradiance and salinity. They represent hypotheses, not controlled field facts.
+                </p>
+            </div>
+
+        </div>
+
+        <!-- RIGHT COLUMN: VISUAL CANVASES & ANALYTICS CHARTS (8 Cols) -->
+        <div class="lg:col-span-8 flex flex-col gap-6">
+
+            <!-- Submerged Panel Visualizer Cards -->
+            <div class="glass-card rounded-2xl p-5 shadow-2xl space-y-4">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-bay-800 pb-3.5">
+                    <div>
+                        <h2 class="font-bold text-slate-100 text-base flex items-center gap-2">
+                            <i data-lucide="eye" class="w-5 h-5 text-teal-400"></i>
+                            Submerged Fouling Panel Visualizer
+                        </h2>
+                        <p class="text-xs text-slate-400">Side-by-side 20x20 cm panel colonization maps</p>
+                    </div>
+                    <div class="flex items-center gap-2 text-xs">
+                        <span class="px-3 py-1 rounded-lg bg-teal-950 border border-teal-500/40 text-teal-300 font-mono font-semibold" id="live-diversity-tag">
+                            Scenario H': 1.34
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Two Side-by-Side Panel Canvases -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+                    <!-- Canvas 1: Observed Baseline Report -->
+                    <div class="space-y-2.5">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-emerald-400 flex items-center gap-1.5 uppercase tracking-wider">
+                                <i data-lucide="file-check" class="w-4 h-4"></i> Observed Baseline
+                            </span>
+                            <span class="text-[10px] font-mono text-slate-300 bg-bay-950 px-2 py-0.5 rounded border border-bay-800">8 Wks · Berkeley · Shade</span>
+                        </div>
+                        <div class="canvas-container border border-emerald-500/40 rounded-xl shadow-2xl ring-1 ring-emerald-500/20">
+                            <canvas id="canvas-baseline"></canvas>
+                        </div>
+                        <div class="p-2.5 bg-bay-900/90 rounded-xl border border-bay-800 text-[11px] text-slate-300 flex justify-between font-mono">
+                            <span>Coverage: <strong class="text-emerald-400 font-bold" id="base-cov-txt">85%</strong></span>
+                            <span>Dominant: <strong class="text-amber-300 font-bold">Botryllus (35%)</strong></span>
+                        </div>
+                    </div>
+
+                    <!-- Canvas 2: Hypothetical Scenario -->
+                    <div class="space-y-2.5">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-amber-400 flex items-center gap-1.5 uppercase tracking-wider">
+                                <i data-lucide="sparkles" class="w-4 h-4"></i> Hypothetical Scenario
+                            </span>
+                            <span class="text-[10px] font-mono text-amber-300 bg-amber-950/80 border border-amber-500/40 px-2 py-0.5 rounded" id="hypo-badge-txt">
+                                8 Wks · Berkeley · Sunny
+                            </span>
+                        </div>
+                        <div class="canvas-container border border-amber-500/40 rounded-xl shadow-2xl ring-1 ring-amber-500/20">
+                            <canvas id="canvas-scenario"></canvas>
+                        </div>
+                        <div class="p-2.5 bg-bay-900/90 rounded-xl border border-bay-800 text-[11px] text-slate-300 flex justify-between font-mono">
+                            <span>Coverage: <strong class="text-amber-400 font-bold" id="hypo-cov-txt">92%</strong></span>
+                            <span>Diversity Index H': <strong class="text-teal-300 font-bold" id="hypo-h-txt">1.45</strong></span>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Analytics Section: Growth Trajectories & Species Composition -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+                <!-- Growth Over Time Line Chart -->
+                <div class="glass-card rounded-2xl p-4.5 shadow-2xl space-y-3 flex flex-col justify-between">
+                    <div class="flex justify-between items-center border-b border-bay-800 pb-2.5">
+                        <h3 class="text-xs font-bold text-slate-100 flex items-center gap-1.5 uppercase tracking-wider">
+                            <i data-lucide="trending-up" class="w-4 h-4 text-teal-400"></i>
+                            Organism Growth Trajectory (1–16 Wks)
+                        </h3>
+                        <span class="text-[10px] text-slate-400 font-mono">% Surface Area</span>
+                    </div>
+                    <div class="relative h-56 w-full">
+                        <canvas id="growthChart"></canvas>
+                    </div>
+                    <p class="text-[10.5px] text-slate-400 italic text-center leading-relaxed">
+                        Simulates succession: pioneer calcified tube worms provide substrate for rapid colonial tunicate expansion.
+                    </p>
+                </div>
+
+                <!-- Surface Coverage Stacked Bar Chart -->
+                <div class="glass-card rounded-2xl p-4.5 shadow-2xl space-y-3 flex flex-col justify-between">
+                    <div class="flex justify-between items-center border-b border-bay-800 pb-2.5">
+                        <h3 class="text-xs font-bold text-slate-100 flex items-center gap-1.5 uppercase tracking-wider">
+                            <i data-lucide="bar-chart-3" class="w-4 h-4 text-emerald-400"></i>
+                            Community Composition Comparison
+                        </h3>
+                        <span class="text-[10px] text-slate-400 font-mono">Baseline vs. Scenario</span>
+                    </div>
+                    <div class="relative h-56 w-full">
+                        <canvas id="compChart"></canvas>
+                    </div>
+                    <p class="text-[10.5px] text-slate-400 italic text-center leading-relaxed">
+                        Hover bars to inspect breakdown between actual baseline report measurements and scenario predictions.
+                    </p>
+                </div>
+
+            </div>
+
+            <!-- Scientific Analysis & Ecological Tabs -->
+            <div class="glass-card rounded-2xl p-5 shadow-2xl space-y-4">
+                <div class="border-b border-bay-800 pb-3 flex flex-wrap gap-2 justify-between items-center">
+                    <h3 class="font-bold text-slate-100 text-sm flex items-center gap-2">
+                        <i data-lucide="book-open" class="w-4 h-4 text-teal-400"></i>
+                        Ecological Mechanisms & Findings Analysis
+                    </h3>
+                    <div class="flex flex-wrap gap-1.5 text-xs" id="tab-headers">
+                        <button class="tab-btn active px-3 py-1.5 rounded-lg font-semibold transition-all bg-teal-600 text-white shadow-md" data-tab="succession">
+                            Succession & Duration
+                        </button>
+                        <button class="tab-btn px-3 py-1.5 rounded-lg font-semibold transition-all bg-bay-900 text-slate-300 hover:text-white border border-bay-800" data-tab="sunlight">
+                            Sunlight & Algae
+                        </button>
+                        <button class="tab-btn px-3 py-1.5 rounded-lg font-semibold transition-all bg-bay-900 text-slate-300 hover:text-white border border-bay-800" data-tab="location">
+                            Location & Salinity
+                        </button>
+                        <button class="tab-btn px-3 py-1.5 rounded-lg font-semibold transition-all bg-bay-900 text-slate-300 hover:text-white border border-bay-800" data-tab="migration">
+                            Species Migration & Dispersal
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Tab 1: Duration -->
+                <div id="tab-succession" class="tab-content text-xs text-slate-300 space-y-3 leading-relaxed">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div class="p-3.5 bg-bay-900/80 rounded-xl border border-bay-800 space-y-1.5">
+                            <span class="font-bold text-teal-300 text-xs flex items-center gap-1.5">
+                                <i data-lucide="sparkles" class="w-4 h-4 text-teal-400"></i> Weeks 1–3: Pioneer Biofilm
+                            </span>
+                            <p class="text-[11px] text-slate-400">
+                                Microscopic bacterial film and pioneer calcified tube worms (*Serpulidae*) attach. Worms construct hard calcium carbonate tubes that increase substrate surface roughness.
+                            </p>
+                        </div>
+                        <div class="p-3.5 bg-bay-900/80 rounded-xl border border-bay-800 space-y-1.5">
+                            <span class="font-bold text-amber-300 text-xs flex items-center gap-1.5">
+                                <i data-lucide="zap" class="w-4 h-4 text-amber-400"></i> Weeks 4–8: Colonial Takeover
+                            </span>
+                            <p class="text-[11px] text-slate-400">
+                                *Botryllus schlosseri* and *Botrylloides violaceus* colonize rapidly via asexual budding (zooid replication), overgrowing primary tubeworms to form dense encrusting mats.
+                            </p>
+                        </div>
+                        <div class="p-3.5 bg-bay-900/80 rounded-xl border border-bay-800 space-y-1.5">
+                            <span class="font-bold text-emerald-300 text-xs flex items-center gap-1.5">
+                                <i data-lucide="layers" class="w-4 h-4 text-emerald-400"></i> Weeks 9–16: Stratification
+                            </span>
+                            <p class="text-[11px] text-slate-400">
+                                Large solitary tunicates (*Ciona*, *Styela*) grow vertically above colonial mats, filtering higher water column layers and creating 3D canopy complexity.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 2: Sunlight -->
+                <div id="tab-sunlight" class="tab-content text-xs text-slate-300 space-y-3 leading-relaxed hidden">
+                    <p class="text-slate-300">
+                        Sunlight acts as an ecological filter by favoring photosynthetic primary producers over sessile filter-feeding invertebrates:
+                    </p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                        <div class="p-3.5 bg-bay-900/80 rounded-xl border border-bay-800">
+                            <h4 class="font-bold text-amber-300 mb-1 flex items-center gap-1.5">
+                                <i data-lucide="sun" class="w-4 h-4 text-amber-400"></i> Direct Sunlight (Top Surface)
+                            </h4>
+                            <p class="text-[11px] text-slate-400">
+                                Direct solar irradiance enables fast-growing filamentous macroalgae and diatom blooms. Algal filaments quickly blanket primary substrate, smothering young tunicate larvae and inhibiting *Botryllus* settlement.
+                            </p>
+                        </div>
+                        <div class="p-3.5 bg-bay-900/80 rounded-xl border border-bay-800">
+                            <h4 class="font-bold text-teal-300 mb-1 flex items-center gap-1.5">
+                                <i data-lucide="cloud-sun" class="w-4 h-4 text-teal-400"></i> Shaded Dock Overhangs (Report Baseline)
+                            </h4>
+                            <p class="text-[11px] text-slate-400">
+                                In shade, macroalgae cannot photosynthesize effectively. Heterotrophic filter feeders (*Botryllus*, *Botrylloides*, tunicates, tubeworms) gain a massive competitive advantage, reaching maximum coverage without algal smothering.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 3: Location -->
+                <div id="tab-location" class="tab-content text-xs text-slate-300 space-y-3 leading-relaxed hidden">
+                    <p class="text-slate-300">
+                        Estuarine hydrodynamics and ocean proximity dictate larval recruitment pools and osmotic stress:
+                    </p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                        <div class="p-3.5 bg-bay-900/80 rounded-xl border border-bay-800">
+                            <h4 class="font-bold text-teal-300 mb-1 flex items-center gap-1.5">
+                                <i data-lucide="anchor" class="w-4 h-4 text-teal-400"></i> Berkeley Marina (Estuarine Protected)
+                            </h4>
+                            <p class="text-[11px] text-slate-400">
+                                Warm, sheltered waters with seasonal salinity drops (due to Bay freshwater runoff). Highly conducive to opportunistic invasive colonial tunicates (*Botrylloides violaceus*) which out-compete sensitive native species.
+                            </p>
+                        </div>
+                        <div class="p-3.5 bg-bay-900/80 rounded-xl border border-bay-800">
+                            <h4 class="font-bold text-blue-300 mb-1 flex items-center gap-1.5">
+                                <i data-lucide="compass" class="w-4 h-4 text-blue-400"></i> Open Ocean / Bay Mouth (High Salinity)
+                            </h4>
+                            <p class="text-[11px] text-slate-400">
+                                Full marine salinity (33–35 ppt), cooler water temperatures, and tidal flushing. Higher larval species diversity prevents single-species monocultures, resulting in a higher Shannon Diversity Index ($H'$).
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 4: Species Migration & Dispersal -->
+                <div id="tab-migration" class="tab-content text-xs text-slate-300 space-y-3 leading-relaxed hidden">
+                    <div class="p-4 bg-bay-950/90 rounded-xl border border-teal-500/30 space-y-3 shadow-inner">
+                        <div class="flex items-center gap-2 text-teal-300 font-bold border-b border-bay-800 pb-2.5 text-xs uppercase tracking-wider">
+                            <i data-lucide="ship" class="w-4 h-4 text-teal-400"></i>
+                            Why & How Marine Fouling Species Migrate Across Ocean & Bay Environments
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3.5 text-[11px]">
+                            <div class="space-y-1.5 p-2.5 bg-bay-900/60 rounded-lg border border-bay-800">
+                                <span class="font-semibold text-slate-200 flex items-center gap-1.5">
+                                    <i data-lucide="anchor" class="w-3.5 h-3.5 text-teal-400"></i> Vessel Hull Biofouling
+                                </span>
+                                <p class="text-slate-400">
+                                    Colonial tunicates like <em>Botryllus schlosseri</em> and <em>Botrylloides violaceus</em> attach firmly to commercial and recreational boat hulls. As vessels travel between ports, adult colonies drop viable larvae into new harbors.
+                                </p>
+                            </div>
+                            <div class="space-y-1.5 p-2.5 bg-bay-900/60 rounded-lg border border-bay-800">
+                                <span class="font-semibold text-slate-200 flex items-center gap-1.5">
+                                    <i data-lucide="droplet" class="w-3.5 h-3.5 text-blue-400"></i> Ballast Water Transport
+                                </span>
+                                <p class="text-slate-400">
+                                    Free-swimming tadpole larvae of tunicates and trochophore larvae of serpulid tube worms are taken into ship ballast tanks and discharged thousands of miles away into estuarine harbors like San Francisco Bay.
+                                </p>
+                            </div>
+                            <div class="space-y-1.5 p-2.5 bg-bay-900/60 rounded-lg border border-bay-800">
+                                <span class="font-semibold text-slate-200 flex items-center gap-1.5">
+                                    <i data-lucide="wind" class="w-3.5 h-3.5 text-emerald-400"></i> Tidal & Planktonic Drift
+                                </span>
+                                <p class="text-slate-400">
+                                    Natural estuarine currents transport free-floating larvae from oceanic bay entrances inward toward sheltered ports like Berkeley Marina, where calm waters facilitate rapid larval settlement.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+    </main>
+
+    <script>
+        // Initialize Lucide Icons
+        lucide.createIcons();
+
+        // --- EXPERIMENTAL BASELINE DATA (Berkeley Marina Report Baseline) ---
+        // 8 Weeks, Shaded Dock, Berkeley Marina Inner Basin
+        const BASELINE_DATA = {
+            duration: 8,
+            sunlight: 'shaded',
+            location: 'berkeley',
+            coverage: {
+                botryllus: 35,      // Botryllus schlosseri
+                botrylloides: 25,   // Botrylloides violaceus
+                solitary: 15,       // Solitary Tunicates
+                worm: 10,           // Marine Tube Worms
+                algae: 0,           // Macroalgae/Film
+                bare: 15            // Uncolonized Substrate
+            }
+        };
+
+        // --- STATE MANAGEMENT ---
+        let state = {
+            duration: 8,
+            sunlight: 'shaded',
+            location: 'berkeley'
+        };
+
+        // Chart instances
+        let growthChartInstance = null;
+        let compChartInstance = null;
+
+        // --- ECOLOGICAL SIMULATION MODEL LOGIC ---
+        // Calculates species coverage percentage based on modified logistic equations
+        function calculateScenarioCoverage(duration, sunlight, location) {
+            let botryllus = 0;
+            let botrylloides = 0;
+            let solitary = 0;
+            let worm = 0;
+            let algae = 0;
+
+            const isSunny = (sunlight === 'sunny');
+            const isOcean = (location === 'ocean');
+
+            // 1. Calculate Algae
+            if (isSunny) {
+                algae = Math.min(45, Math.pow(duration, 1.2) * 3.2);
+            } else {
+                algae = Math.min(5, duration * 0.4);
+            }
+
+            // 2. Calculate Tube Worms (Serpulidae)
+            if (duration <= 3) {
+                worm = duration * 4.5;
+            } else if (duration <= 8) {
+                worm = 13.5 - (duration - 3) * 0.7; // Overgrown by colonial tunicates
+            } else {
+                worm = Math.max(4, 10 - (duration - 8) * 0.5);
+            }
+            if (isOcean) worm *= 1.3; // Higher calcified tubeworm recruitment in open marine salinity
+
+            // 3. Calculate Botryllus schlosseri
+            let botryllusMax = isOcean ? 22 : 40;
+            if (isSunny) botryllusMax *= 0.6; // Reduced by algal shading competition
+            const kBotryllus = 0.45;
+            botryllus = botryllusMax / (1 + Math.exp(-kBotryllus * (duration - 4.5)));
+
+            // 4. Calculate Botrylloides violaceus
+            let botrylloidesMax = isOcean ? 18 : 32;
+            if (isSunny) botrylloidesMax *= 0.65;
+            const kBotrylloides = 0.40;
+            botrylloides = botrylloidesMax / (1 + Math.exp(-kBotrylloides * (duration - 5.0)));
+
+            // 5. Calculate Solitary Tunicates (Ciona/Styela)
+            let solitaryMax = isOcean ? 28 : 22;
+            if (isSunny) solitaryMax *= 0.8;
+            const kSolitary = 0.35;
+            solitary = solitaryMax / (1 + Math.exp(-kSolitary * (duration - 7.5)));
+
+            // Raw sum
+            let totalOccupied = botryllus + botrylloides + solitary + worm + algae;
+
+            // Enforce 100% space constraint
+            let bare = Math.max(0, 100 - totalOccupied);
+
+            if (totalOccupied > 100) {
+                const scale = 100 / totalOccupied;
+                botryllus *= scale;
+                botrylloides *= scale;
+                solitary *= scale;
+                worm *= scale;
+                algae *= scale;
+                bare = 0;
+            }
+
+            return {
+                botryllus: Math.round(botryllus),
+                botrylloides: Math.round(botrylloides),
+                solitary: Math.round(solitary),
+                worm: Math.round(worm),
+                algae: Math.round(algae),
+                bare: Math.round(bare)
+            };
+        }
+
+        // Calculate Shannon-Wiener Diversity Index (H')
+        function calculateDiversity(cov) {
+            const species = [cov.botryllus, cov.botrylloides, cov.solitary, cov.worm, cov.algae];
+            const totalBio = species.reduce((a, b) => a + b, 0);
+            if (totalBio === 0) return "0.00";
+
+            let h = 0;
+            species.forEach(val => {
+                if (val > 0) {
+                    const p = val / totalBio;
+                    h -= p * Math.log(p);
+                }
+            });
+            return h.toFixed(2);
+        }
+
+        // --- CANVAS RENDERERS ---
+        // Draws procedural 2D organism colonies on submerged dark PVC panels
+        function drawPanel(canvasId, coverage, isBaseline = false) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio || 300;
+            canvas.height = rect.height * window.devicePixelRatio || 225;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+            const width = rect.width;
+            const height = rect.height;
+
+            // Background (Submerged PVC Panel)
+            ctx.fillStyle = '#0f1f35';
+            ctx.fillRect(0, 0, width, height);
+
+            // Substrate Grid Lines
+            ctx.strokeStyle = '#172c4a';
+            ctx.lineWidth = 1;
+            const gridSize = 20;
+            for (let x = 0; x < width; x += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, height);
+                ctx.stroke();
+            }
+            for (let y = 0; y < height; y += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(width, y);
+                ctx.stroke();
+            }
+
+            // Stable pseudo-random seed to prevent canvas jitter during slider moves
+            let seed = isBaseline ? 12345 : 67890;
+            function pseudoRandom() {
+                let x = Math.sin(seed++) * 10000;
+                return x - Math.floor(x);
+            }
+
+            // 1. Algae & Microfilm
+            if (coverage.algae > 0) {
+                const algaeClusters = Math.floor((coverage.algae / 100) * 80);
+                ctx.fillStyle = 'rgba(16, 185, 129, 0.35)';
+                for (let i = 0; i < algaeClusters; i++) {
+                    const ax = pseudoRandom() * width;
+                    const ay = pseudoRandom() * height;
+                    const ar = 12 + pseudoRandom() * 20;
+                    ctx.beginPath();
+                    ctx.arc(ax, ay, ar, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
+            // 2. Tube Worms (Serpulidae)
+            if (coverage.worm > 0) {
+                const wormCount = Math.floor((coverage.worm / 100) * 45);
+                ctx.strokeStyle = '#f8fafc';
+                ctx.lineWidth = 3;
+                ctx.lineCap = 'round';
+                for (let i = 0; i < wormCount; i++) {
+                    const wx = pseudoRandom() * (width - 30) + 15;
+                    const wy = pseudoRandom() * (height - 30) + 15;
+                    ctx.beginPath();
+                    ctx.moveTo(wx, wy);
+                    ctx.quadraticCurveTo(
+                        wx + (pseudoRandom() - 0.5) * 30,
+                        wy + (pseudoRandom() - 0.5) * 30,
+                        wx + (pseudoRandom() - 0.5) * 20,
+                        wy + (pseudoRandom() - 0.5) * 20
+                    );
+                    ctx.stroke();
+                }
+            }
+
+            // 3. Botryllus schlosseri (Golden Star Tunicates)
+            if (coverage.botryllus > 0) {
+                const clusterCount = Math.floor((coverage.botryllus / 100) * 25) + 1;
+                for (let i = 0; i < clusterCount; i++) {
+                    const cx = pseudoRandom() * (width - 40) + 20;
+                    const cy = pseudoRandom() * (height - 40) + 20;
+                    
+                    ctx.fillStyle = 'rgba(217, 119, 6, 0.75)';
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, 14, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.fillStyle = '#fef08a';
+                    const points = 5;
+                    for (let p = 0; p < points; p++) {
+                        const angle = (p * 2 * Math.PI) / points;
+                        const zx = cx + Math.cos(angle) * 8;
+                        const zy = cy + Math.sin(angle) * 8;
+                        ctx.beginPath();
+                        ctx.arc(zx, zy, 2.5, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+            }
+
+            // 4. Botrylloides violaceus (Chain Tunicates)
+            if (coverage.botrylloides > 0) {
+                const chainCount = Math.floor((coverage.botrylloides / 100) * 20) + 1;
+                ctx.strokeStyle = '#f43f5e';
+                ctx.lineWidth = 6;
+                ctx.lineCap = 'round';
+                for (let i = 0; i < chainCount; i++) {
+                    const bx = pseudoRandom() * (width - 40) + 20;
+                    const by = pseudoRandom() * (height - 40) + 20;
+                    ctx.beginPath();
+                    ctx.moveTo(bx, by);
+                    ctx.bezierCurveTo(
+                        bx + 20, by - 15,
+                        bx + 30, by + 20,
+                        bx + 45, by + 5
+                    );
+                    ctx.stroke();
+                }
+            }
+
+            // 5. Solitary Tunicates (Ciona / Styela)
+            if (coverage.solitary > 0) {
+                const solitaryCount = Math.floor((coverage.solitary / 100) * 16) + 1;
+                for (let i = 0; i < solitaryCount; i++) {
+                    const sx = pseudoRandom() * (width - 30) + 15;
+                    const sy = pseudoRandom() * (height - 30) + 15;
+
+                    ctx.fillStyle = 'rgba(34, 211, 238, 0.7)';
+                    ctx.strokeStyle = '#0891b2';
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+                    ctx.ellipse(sx, sy, 7, 12, Math.PI / 6, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+
+                    ctx.fillStyle = '#a5f3fc';
+                    ctx.beginPath();
+                    ctx.arc(sx - 3, sy - 10, 2.5, 0, Math.PI * 2);
+                    ctx.arc(sx + 3, sy - 8, 2, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        }
+
+        // --- CHART.JS INITIALIZATION ---
+        function initCharts() {
+            // 1. Growth Chart (Line)
+            const ctxGrowth = document.getElementById('growthChart').getContext('2d');
+            growthChartInstance = new Chart(ctxGrowth, {
+                type: 'line',
+                data: {
+                    labels: Array.from({length: 16}, (_, i) => `Wk ${i + 1}`),
+                    datasets: [
+                        { label: 'Botryllus', data: [], borderColor: '#f59e0b', backgroundColor: '#f59e0b', tension: 0.35, borderWidth: 2 },
+                        { label: 'Botrylloides', data: [], borderColor: '#f43f5e', backgroundColor: '#f43f5e', tension: 0.35, borderWidth: 2 },
+                        { label: 'Solitary Tunicates', data: [], borderColor: '#22d3ee', backgroundColor: '#22d3ee', tension: 0.35, borderWidth: 2 },
+                        { label: 'Marine Worm', data: [], borderColor: '#cbd5e1', backgroundColor: '#cbd5e1', tension: 0.35, borderWidth: 2 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { labels: { color: '#94a3b8', font: { family: 'Plus Jakarta Sans', size: 10 } } },
+                        tooltip: { mode: 'index', intersect: false }
+                    },
+                    scales: {
+                        x: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8', font: { size: 9 } } },
+                        y: { 
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' }, 
+                            ticks: { color: '#94a3b8', font: { size: 9 } },
+                            title: { display: true, text: '% Coverage', color: '#64748b', font: { size: 10 } },
+                            min: 0, max: 50 
+                        }
+                    }
+                }
+            });
+
+            // 2. Composition Comparison Chart (Stacked Bar)
+            const ctxComp = document.getElementById('compChart').getContext('2d');
+            compChartInstance = new Chart(ctxComp, {
+                type: 'bar',
+                data: {
+                    labels: ['Observed Baseline', 'Hypothetical Scenario'],
+                    datasets: [
+                        { label: 'Botryllus', data: [35, 35], backgroundColor: '#f59e0b' },
+                        { label: 'Botrylloides', data: [25, 25], backgroundColor: '#f43f5e' },
+                        { label: 'Solitary Tunicates', data: [15, 15], backgroundColor: '#22d3ee' },
+                        { label: 'Marine Worm', data: [10, 10], backgroundColor: '#cbd5e1' },
+                        { label: 'Macroalgae/Film', data: [0, 0], backgroundColor: '#10b981' },
+                        { label: 'Bare Substrate', data: [15, 15], backgroundColor: '#1e293b' }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { stacked: true, grid: { display: false }, ticks: { color: '#e2e8f0', font: { family: 'Plus Jakarta Sans', size: 10, weight: '600' } } },
+                        y: { stacked: true, grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8', font: { size: 9 } }, min: 0, max: 100 }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label}: ${context.raw}%`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateGrowthChart() {
+            const botryllusData = [];
+            const botrylloidesData = [];
+            const solitaryData = [];
+            const wormData = [];
+
+            for (let w = 1; w <= 16; w++) {
+                const cov = calculateScenarioCoverage(w, state.sunlight, state.location);
+                botryllusData.push(cov.botryllus);
+                botrylloidesData.push(cov.botrylloides);
+                solitaryData.push(cov.solitary);
+                wormData.push(cov.worm);
+            }
+
+            growthChartInstance.data.datasets[0].data = botryllusData;
+            growthChartInstance.data.datasets[1].data = botrylloidesData;
+            growthChartInstance.data.datasets[2].data = solitaryData;
+            growthChartInstance.data.datasets[3].data = wormData;
+            growthChartInstance.update();
+        }
+
+        function updateSimulation() {
+            const hypoCov = calculateScenarioCoverage(state.duration, state.sunlight, state.location);
+            const baseCov = BASELINE_DATA.coverage;
+
+            // Draw Canvases
+            drawPanel('canvas-baseline', baseCov, true);
+            drawPanel('canvas-scenario', hypoCov, false);
+
+            // Coverage Totals
+            const totalBaseBio = 100 - baseCov.bare;
+            const totalHypoBio = 100 - hypoCov.bare;
+            
+            document.getElementById('base-cov-txt').textContent = `${totalBaseBio}%`;
+            document.getElementById('hypo-cov-txt').textContent = `${totalHypoBio}%`;
+
+            const hypoH = calculateDiversity(hypoCov);
+            const baseH = calculateDiversity(baseCov);
+
+            document.getElementById('hypo-h-txt').textContent = hypoH;
+            document.getElementById('live-diversity-tag').textContent = `Scenario H': ${hypoH} (vs Base ${baseH})`;
+
+            // Legend Numbers
+            document.getElementById('legend-botryllus').textContent = `${hypoCov.botryllus}%`;
+            document.getElementById('legend-botrylloides').textContent = `${hypoCov.botrylloides}%`;
+            document.getElementById('legend-solitary').textContent = `${hypoCov.solitary}%`;
+            document.getElementById('legend-worm').textContent = `${hypoCov.worm}%`;
+            document.getElementById('legend-algae').textContent = `${hypoCov.algae}%`;
+            document.getElementById('legend-bare').textContent = `${hypoCov.bare}%`;
+
+            // Scenario Badge Label
+            const sunLabel = state.sunlight === 'sunny' ? 'Direct Sun' : 'Shaded';
+            const locLabel = state.location === 'berkeley' ? 'Berkeley' : 'Open Ocean';
+            document.getElementById('hypo-badge-txt').textContent = `${state.duration} Wks · ${locLabel} · ${sunLabel}`;
+
+            // Scenario Summary Description Text
+            let summaryMsg = "";
+            if (state.duration === 8 && state.sunlight === 'shaded' && state.location === 'berkeley') {
+                summaryMsg = "Matches experimental baseline observations at Berkeley Marina under shaded dock overhangs.";
+            } else {
+                let factors = [];
+                if (state.sunlight === 'sunny') factors.push("sunlight boosts macroalgae competition");
+                if (state.location === 'ocean') factors.push("ocean salinity increases larval diversity & solitary tunicates");
+                if (state.duration > 8) factors.push("extended duration allows solitary tunicates to overgrow colonial mats");
+                if (state.duration < 4) factors.push("early succession phase dominated by tube worms and biofilm");
+                summaryMsg = `Model estimate: ${factors.join("; ")}.`;
+            }
+            document.getElementById('scenario-summary-text').textContent = summaryMsg;
+
+            // Update Composition Bar Chart
+            compChartInstance.data.datasets[0].data = [baseCov.botryllus, hypoCov.botryllus];
+            compChartInstance.data.datasets[1].data = [baseCov.botrylloides, hypoCov.botrylloides];
+            compChartInstance.data.datasets[2].data = [baseCov.solitary, hypoCov.solitary];
+            compChartInstance.data.datasets[3].data = [baseCov.worm, hypoCov.worm];
+            compChartInstance.data.datasets[4].data = [baseCov.algae, hypoCov.algae];
+            compChartInstance.data.datasets[5].data = [baseCov.bare, hypoCov.bare];
+            compChartInstance.update();
+
+            // Update Line Growth Chart
+            updateGrowthChart();
+        }
+
+        // --- EVENT LISTENERS ---
+        document.addEventListener('DOMContentLoaded', () => {
+            initCharts();
+
+            // Duration Slider
+            const durationSlider = document.getElementById('duration-slider');
+            const durationVal = document.getElementById('duration-val');
+            durationSlider.addEventListener('input', (e) => {
+                state.duration = parseInt(e.target.value);
+                durationVal.textContent = `${state.duration} Week${state.duration > 1 ? 's' : ''}`;
+                updateSimulation();
+            });
+
+            // Sunlight Buttons
+            const sunShadedBtn = document.getElementById('sun-shaded');
+            const sunSunnyBtn = document.getElementById('sun-sunny');
+
+            sunShadedBtn.addEventListener('click', () => {
+                state.sunlight = 'shaded';
+                sunShadedBtn.className = "sun-btn flex items-center justify-center gap-2 p-3 rounded-xl border text-xs font-semibold transition-all bg-bay-800 text-teal-200 border-teal-500/50 shadow-lg ring-1 ring-teal-500/30";
+                sunSunnyBtn.className = "sun-btn flex items-center justify-center gap-2 p-3 rounded-xl border text-xs font-semibold transition-all bg-bay-950 text-slate-400 border-bay-800 hover:border-amber-500/50 hover:text-slate-200";
+                updateSimulation();
+            });
+
+            sunSunnyBtn.addEventListener('click', () => {
+                state.sunlight = 'sunny';
+                sunSunnyBtn.className = "sun-btn flex items-center justify-center gap-2 p-3 rounded-xl border text-xs font-semibold transition-all bg-bay-800 text-amber-200 border-amber-500/50 shadow-lg ring-1 ring-amber-500/30";
+                sunShadedBtn.className = "sun-btn flex items-center justify-center gap-2 p-3 rounded-xl border text-xs font-semibold transition-all bg-bay-950 text-slate-400 border-bay-800 hover:border-teal-500/50 hover:text-slate-200";
+                updateSimulation();
+            });
+
+            // Location Buttons
+            const locBerkeleyBtn = document.getElementById('loc-berkeley');
+            const locOceanBtn = document.getElementById('loc-ocean');
+
+            locBerkeleyBtn.addEventListener('click', () => {
+                state.location = 'berkeley';
+                locBerkeleyBtn.className = "loc-btn flex items-center justify-between p-3 rounded-xl border text-xs font-semibold transition-all bg-bay-800 text-teal-200 border-teal-500/50 shadow-lg ring-1 ring-teal-500/30";
+                locOceanBtn.className = "loc-btn flex items-center justify-between p-3 rounded-xl border text-xs font-semibold transition-all bg-bay-950 text-slate-400 border-bay-800 hover:border-blue-500/50 hover:text-slate-200";
+                updateSimulation();
+            });
+
+            locOceanBtn.addEventListener('click', () => {
+                state.location = 'ocean';
+                locOceanBtn.className = "loc-btn flex items-center justify-between p-3 rounded-xl border text-xs font-semibold transition-all bg-bay-800 text-blue-200 border-blue-500/50 shadow-lg ring-1 ring-blue-500/30";
+                locBerkeleyBtn.className = "loc-btn flex items-center justify-between p-3 rounded-xl border text-xs font-semibold transition-all bg-bay-950 text-slate-400 border-bay-800 hover:border-teal-500/50 hover:text-slate-200";
+                updateSimulation();
+            });
+
+            // Reset Button
+            document.getElementById('reset-btn').addEventListener('click', () => {
+                state = { duration: 8, sunlight: 'shaded', location: 'berkeley' };
+                durationSlider.value = 8;
+                durationVal.textContent = "8 Weeks";
+                sunShadedBtn.click();
+                locBerkeleyBtn.click();
+            });
+
+            // Tab Navigation
+            const tabHeaders = document.querySelectorAll('.tab-btn');
+            tabHeaders.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    tabHeaders.forEach(b => {
+                        b.classList.remove('bg-teal-600', 'text-white', 'shadow-md');
+                        b.classList.add('bg-bay-900', 'text-slate-300');
+                    });
+                    btn.classList.remove('bg-bay-900', 'text-slate-300');
+                    btn.classList.add('bg-teal-600', 'text-white', 'shadow-md');
+
+                    const targetTab = btn.getAttribute('data-tab');
+                    document.querySelectorAll('.tab-content').forEach(content => {
+                        content.classList.add('hidden');
+                    });
+                    document.getElementById(`tab-${targetTab}`).classList.remove('hidden');
+                });
+            });
+
+            // Initial Render
+            updateSimulation();
+
+            // Responsive redraw
+            window.addEventListener('resize', () => {
+                updateSimulation();
+            });
+        });
+    </script>
+</body>
+</html>
